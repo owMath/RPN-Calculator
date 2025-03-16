@@ -337,7 +337,7 @@ def generate_assembly(expressions, results):
         
         # Imprime a expressão (caractere por caractere)
         # Filtra para manter apenas caracteres seguros
-        safe_chars = "()+-*/|%^0123456789. "
+        safe_chars = "()+-*/|%^0123456789. MESR"
         expr_clean = ''.join(c for c in expr if c in safe_chars)
         
         for char in expr_clean:
