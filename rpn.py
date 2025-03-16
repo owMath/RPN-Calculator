@@ -5,6 +5,8 @@ Javier Agustin Aranibar González
 Matheus Paul Lopuch
 Rafael Bonfim Zacco
 
+Grupo 04
+
 Calculadora RPN para Arduino
 Este programa lê expressões RPN de um arquivo de texto, calcula os resultados
 e gera código Assembly que exibe tanto as expressões quanto seus resultados.
