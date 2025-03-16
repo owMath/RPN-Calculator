@@ -44,9 +44,18 @@ Esse comando irá:
 - Mostrar instruções para compilação e upload
 
 #### 3. Compilação e Upload para o Arduino
+(Para realizar esses comandos é necessário ter o WinAVR instalado no seu PC).
+
+Basta seguir as etapas de instalação normalmente.
+
+[Link de Download](https://sourceforge.net/projects/winavr/)
+
+Após o Download, execute os comandos em ordem:
+
+
 - ```bash
   avr-gcc -mmcu=atmega328p -o rpn_calculator.elf rpn_calculator.S
-(avr-gcc compila esse código em um executável binário (.elf)).
+avr-gcc compila esse código em um executável binário (.elf).
 - ```bash
   avr-objcopy -O ihex rpn_calculator.elf rpn_calculator.hex
 avr-objcopy converte o executável em formato Intel HEX (.hex).
