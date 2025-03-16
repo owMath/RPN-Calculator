@@ -196,6 +196,8 @@ class RPNCalculator:
                     print(f"Aviso: Expoente deve ser inteiro positivo: {b}")
                     b = max(0, int(b))  # Ajusta para inteiro positivo
                 stack.append(a ** b)  # Potenciação
+            elif token == 'MEM':  # Adicionamos esta condição aqui
+                stack.append(self.memory_value)  # Coloca o valor da memória na pilha
             else:
                 # Considera como número e adiciona à pilha
                 try:
