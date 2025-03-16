@@ -7,6 +7,8 @@
 #### Javier Agustin Aranibar González
 #### Matheus Paul Lopuch
 #### Rafael Bonfim Zacco
+
+Grupo 04
 ---
 Este projeto implementa uma calculadora RPN para Arduino. O programa é capaz de:
 1. Ler expressões RPN de um arquivo de texto
