@@ -56,11 +56,11 @@ class RPNCalculator:
         if res_match:
             n = int(res_match.group(1))  # Extrai o número N do comando
             # Verifica se o índice N é válido
-            if n >= len(self.previous_results):
+            if n > len(self.previous_results) or n == 0:
                 print(f"Aviso: Tentativa de acessar resultado inexistente (linha -{n})")
                 return 0.0
             # Retorna o resultado N posições atrás na lista de resultados
-            return self.previous_results[len(self.previous_results) - n - 1]
+            return self.previous_results[len(self.previous_results) - n ]
         
         # Comando (V MEM) - armazena o valor V na memória
         mem_store_match = re.match(r'^([\d.]+)\s+MEM$', expression)
