@@ -7,43 +7,65 @@ Rafael Bonfim Zacco
 
 Grupo 04
 
-Calculadora RPN para Arduino
+Calculadora RPN para Arduino com suporte a float16
 Este programa lê expressões RPN de um arquivo de texto, calcula os resultados
-e gera código Assembly que exibe tanto as expressões quanto seus resultados.
-
+usando float16 e gera código Assembly que exibe tanto as expressões quanto seus resultados
+com precisão de 16 bits.
 """
 
 import sys  # Importa o módulo sys para acessar argumentos da linha de comando
 import re   # Importa o módulo re para usar expressões regulares
+import numpy as np  # Importa numpy para suporte a float16
+import struct  # Para conversão binária precisa
 
 class RPNCalculator:
     """
-    Classe responsável por avaliar expressões RPN.
+    Classe responsável por avaliar expressões RPN usando float16.
     
-    Implementa um avaliador de expressões em notação polonesa reversa (RPN).
-    Suporta operações básicas, comandos especiais e expressões aninhadas.
+    Implementa um avaliador de expressões em notação polonesa reversa (RPN)
+    com representação de números em precisão reduzida (float16).
     """
     
     def __init__(self):
         """
-        Inicializa a calculadora RPN.
+        Inicializa a calculadora RPN com suporte a float16.
         
         Cria:
         - Uma posição de memória (variável MEM)
         - Uma lista para armazenar resultados prévios (para uso do comando RES)
         """
-        self.memory_value = 0.0            # Inicializa a memória com zero
-        self.previous_results = []         # Lista vazia para armazenar resultados anteriores
+        self.memory_value = np.float16(0.0)  # Usa float16 para memória
+        self.previous_results = []           # Lista para armazenar resultados anteriores
+    
+    def _safe_float16_op(self, operation):
+        """
+        Executa operações com tratamento de overflow/underflow para float16.
+        
+        Args:
+            operation (callable): Função que retorna o resultado da operação
+            
+        Returns:
+            np.float16: Resultado da operação com tratamento de limites
+        """
+        try:
+            result = operation()
+            return np.float16(result)
+        except OverflowError:
+            print("Aviso: Overflow detectado. Retornando valor máximo de float16.")
+            return np.float16(np.finfo(np.float16).max)
+        except UnderflowError:
+            print("Aviso: Underflow detectado. Retornando zero.")
+            return np.float16(0.0)
     
     def evaluate_expression(self, expression):
         """
-        Avalia uma expressão RPN e retorna o resultado.
+        Avalia uma expressão RPN e retorna o resultado em float16.
         
         Args:
             expression (str): A expressão RPN a ser avaliada
             
         Returns:
-            float: O resultado da expressão
+            np.float16: O resultado da expressão
         """
         # Remove parênteses externos se existirem
         if expression.startswith('(') and expression.endswith(')'):
@@ -58,14 +80,15 @@ class RPNCalculator:
             # Verifica se o índice N é válido
             if n > len(self.previous_results) or n == 0:
                 print(f"Aviso: Tentativa de acessar resultado inexistente (linha -{n})")
-                return 0.0
+                return np.float16(0.0)
             # Retorna o resultado N posições atrás na lista de resultados
             return self.previous_results[len(self.previous_results) - n ]
         
         # Comando (V MEM) - armazena o valor V na memória
         mem_store_match = re.match(r'^([\d.]+)\s+MEM$', expression)
         if mem_store_match:
-            self.memory_value = float(mem_store_match.group(1))  # Armazena o valor na memória
+            # Converte e armazena como float16
+            self.memory_value = np.float16(float(mem_store_match.group(1)))
             return self.memory_value
         
         # Comando (MEM) - retorna o valor armazenado na memória
@@ -128,90 +151,100 @@ class RPNCalculator:
                 # Operação de adição
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para adição")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()  # Segundo operando
                 a = stack.pop()  # Primeiro operando
-                stack.append(a + b)  # Empilha o resultado
+                result = self._safe_float16_op(lambda: a + b)
+                stack.append(result)
             elif token == '-':
                 # Operação de subtração
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para subtração")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()
                 a = stack.pop()
-                stack.append(a - b)
+                result = self._safe_float16_op(lambda: a - b)
+                stack.append(result)
             elif token == '*':
                 # Operação de multiplicação
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para multiplicação")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()
                 a = stack.pop()
-                stack.append(a * b)
+                result = self._safe_float16_op(lambda: a * b)
+                stack.append(result)
             elif token == '|':
                 # Operação de divisão real
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para divisão")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()
                 a = stack.pop()
                 if b == 0:
                     print("Aviso: Divisão por zero detectada")
-                    stack.append(float('inf'))  # Retorna infinito para divisão por zero
+                    stack.append(np.float16(float('inf')))  # Retorna infinito
                 else:
-                    stack.append(a / b)  # Divisão real
+                    result = self._safe_float16_op(lambda: a / b)
+                    stack.append(result)
             elif token == '/':
                 # Operação de divisão de inteiros
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para divisão de inteiros")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()
                 a = stack.pop()
                 if b == 0:
                     print("Aviso: Divisão por zero detectada")
-                    stack.append(float('inf'))
+                    stack.append(np.float16(float('inf')))
                 else:
-                    stack.append(a // b)  # Divisão de inteiros (parte inteira)
+                    # Converte para inteiro e depois de volta para float16
+                    result = self._safe_float16_op(lambda: int(a) // int(b))
+                    stack.append(result)
             elif token == '%':
                 # Operação de resto da divisão
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para resto da divisão")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()
                 a = stack.pop()
                 if b == 0:
                     print("Aviso: Divisão por zero detectada")
-                    stack.append(0.0)
+                    stack.append(np.float16(0.0))
                 else:
-                    stack.append(a % b)  # Resto da divisão
+                    # Converte para inteiro e depois de volta para float16
+                    result = self._safe_float16_op(lambda: int(a) % int(b))
+                    stack.append(result)
             elif token == '^':
                 # Operação de potenciação
                 if len(stack) < 2:
                     print("Erro: Pilha insuficiente para potenciação")
-                    return 0.0
+                    return np.float16(0.0)
                 b = stack.pop()  # Expoente
                 a = stack.pop()  # Base
                 # Verifica se o expoente é inteiro positivo conforme requisito
                 if b != int(b) or b < 0:
                     print(f"Aviso: Expoente deve ser inteiro positivo: {b}")
                     b = max(0, int(b))  # Ajusta para inteiro positivo
-                stack.append(a ** b)  # Potenciação
+                result = self._safe_float16_op(lambda: a ** b)
+                stack.append(result)
             elif token == 'MEM':  # Adicionamos esta condição aqui
                 stack.append(self.memory_value)  # Coloca o valor da memória na pilha
             else:
                 # Considera como número e adiciona à pilha
                 try:
-                    stack.append(float(token))
+                    # Converte diretamente para float16
+                    stack.append(np.float16(float(token)))
                 except ValueError:
                     print(f"Aviso: Token não reconhecido: {token}")
-                    stack.append(0.0)  # Valor padrão para tokens não reconhecidos
+                    stack.append(np.float16(0.0))  # Valor padrão para tokens não reconhecidos
         
         # Ao final, deve haver apenas um valor na pilha (o resultado)
         if len(stack) == 1:
             return stack[0]
         else:
             print(f"Aviso: Expressão malformada, restaram {len(stack)} itens na pilha")
-            return 0.0 if not stack else stack[-1]  # Retorna 0 ou o topo da pilha
+            return np.float16(0.0) if not stack else stack[-1]  # Retorna 0 ou o topo da pilha
 
 
 def read_expressions_file(filename):
@@ -236,12 +269,75 @@ def read_expressions_file(filename):
         sys.exit(1)  # Encerra o programa com código de erro
 
 
+def get_float16_precision_string(value):
+    """
+    Converte um float16 para string com precisão exata de 16 bits.
+    
+    Args:
+        value (np.float16): O valor float16 a ser convertido
+        
+    Returns:
+        str: String representando o valor com precisão de float16
+    """
+    # Extrai os bits de float16
+    bits = np.float16(value).view(np.uint16)
+    
+    # Extrai os componentes
+    sign_bit = (bits >> 15) & 0x1
+    exponent = (bits >> 10) & 0x1F
+    mantissa = bits & 0x3FF
+    
+    if exponent == 0 and mantissa == 0:
+        # Zero
+        return "0.0" if sign_bit == 0 else "-0.0"
+    elif exponent == 0x1F:
+        # Infinito ou NaN
+        if mantissa == 0:
+            return "inf" if sign_bit == 0 else "-inf"
+        else:
+            return "nan"
+    
+    # Números normais e denormalizados
+    sign = '-' if sign_bit else ''
+    
+    if exponent == 0:
+        # Denormalizado
+        actual_exponent = -14
+        actual_mantissa = mantissa / 1024.0
+    else:
+        # Normalizado
+        actual_exponent = exponent - 15
+        actual_mantissa = 1.0 + mantissa / 1024.0
+    
+    # Calcula o valor decimal
+    value_decimal = actual_mantissa * (2.0 ** actual_exponent)
+    
+    # Formata com precisão limitada a ~3-4 dígitos significativos (float16)
+    # Limita a 6 caracteres total para números pequenos
+    if abs(value_decimal) < 0.001 or abs(value_decimal) >= 10000:
+        # Notação científica para números muito grandes ou pequenos
+        fmt_str = f"{sign}{value_decimal:.4e}"
+    else:
+        # Notação decimal com precisão limitada
+        precision = 4 - len(str(int(abs(value_decimal))))
+        precision = max(0, precision)  # Evita precisão negativa
+        fmt_str = f"{sign}{value_decimal:.{precision}f}"
+    
+    # Remove zeros à direita se for um valor decimal
+    if '.' in fmt_str and 'e' not in fmt_str:
+        fmt_str = fmt_str.rstrip('0').rstrip('.')
+        if fmt_str == '-0' or fmt_str == '':
+            fmt_str = '0'
+    
+    return fmt_str
+
+
 def generate_assembly(expressions, results):
     """
     Gera código Assembly para Arduino que mostra as expressões e seus resultados.
     
     O código Assembly gerado configura a UART para comunicação serial
-    e envia os textos das expressões e seus resultados para visualização.
+    e envia os textos das expressões e seus resultados com precisão de float16.
     
     Args:
         expressions (list): Lista de expressões RPN
@@ -252,7 +348,7 @@ def generate_assembly(expressions, results):
     """
     # Cabeçalho do código Assembly - configuração inicial
     assembly_code = [
-        "; Calculadora RPN para Arduino - Expressões e Resultados",
+        "; Calculadora RPN para Arduino - Expressões e Resultados (float16)",
         "",
         ".global main",  # Ponto de entrada do programa
         "",
@@ -289,13 +385,11 @@ def generate_assembly(expressions, results):
         "    rcall uart_send",
         "    ldi r16, ' '",
         "    rcall uart_send",
-        "    ldi r16, 'C'",
+        "    ldi r16, 'F'",
         "    rcall uart_send",
-        "    ldi r16, 'a'",
+        "    ldi r16, '1'",
         "    rcall uart_send",
-        "    ldi r16, 'l'",
-        "    rcall uart_send",
-        "    ldi r16, 'c'",
+        "    ldi r16, '6'",
         "    rcall uart_send",
         "    rcall print_newline",    # Insere nova linha
         ""
@@ -303,9 +397,12 @@ def generate_assembly(expressions, results):
     
     # Adiciona código para mostrar cada expressão e seu resultado
     for idx, (expr, result) in enumerate(zip(expressions, results)):
+        # Prepara o resultado como string com precisão exata de float16
+        result_str = get_float16_precision_string(result)
+        
         # Adiciona comentário e imprime o número da expressão
         assembly_code.extend([
-            f"    ; Expressão {idx+1}: {expr} = {result}",
+            f"    ; Expressão {idx+1}: {expr} = {result_str}",
             "    ldi r16, 'E'",
             "    rcall uart_send",
             "    ldi r16, 'x'",
@@ -356,14 +453,10 @@ def generate_assembly(expressions, results):
             "    rcall uart_send"
         ])
         
-        # Converte o resultado para string e imprime
-        result_str = str(result)
-        # Limita o tamanho para evitar problemas
-        result_str = result_str[:8]  
-        
+        # Imprime o resultado formatado com precisão float16
         for char in result_str:
             # Imprime apenas caracteres seguros
-            if char in "0123456789.-+e":
+            if char in "0123456789.-+einf":
                 assembly_code.extend([
                     f"    ldi r16, '{char}'",
                     "    rcall uart_send"
@@ -453,10 +546,12 @@ def main():
         # Armazena o resultado para uso do comando RES
         calculator.previous_results.append(result)
     
-    # Exibe as expressões e resultados no console
+    # Exibe as expressões e resultados no console com precisão de float16
     print(f"Expressões e resultados de {filename}:")
     for idx, (expr, result) in enumerate(zip(expressions, results)):
-        print(f"{idx+1}. {expr} = {result}")
+        # Formata o resultado com precisão específica de float16
+        result_str = get_float16_precision_string(result)
+        print(f"{idx+1}. {expr} = {result_str}")
     
     # Gera o código Assembly
     assembly_code = generate_assembly(expressions, results)
