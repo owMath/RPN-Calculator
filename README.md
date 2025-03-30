@@ -1,4 +1,4 @@
-# Interpretador RPN para Arduino
+# Calculadora RPN para Arduino
 
 ## Descrição
 Programa que lê expressões aritméticas em notação polonesa reversa (RPN), gera código Assembly e executa as operações em Arduino. Suporta operações matemáticas com números reais (IEEE754).
