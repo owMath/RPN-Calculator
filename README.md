@@ -112,3 +112,24 @@ Arquivo .txt (teste1) que foi utilizado
 (1 RES)
 ```
 
+### Considerações finais
+
+O desenvolvimento deste projeto de Interpretador RPN para Arduino foi concluído com sucesso. Todas as funcionalidades requeridas foram implementadas e testadas adequadamente:
+
+- A interpretação de expressões em notação polonesa reversa (RPN) está funcionando corretamente
+- O código gerado em Assembly é compatível com o microcontrolador ATmega328p do Arduino
+- Todos os operadores matemáticos (+, -, *, |, /, %, ^) foram implementados e testados
+- Os comandos especiais (N RES, V MEM, MEM) funcionam conforme especificado
+- O processamento de expressões aninhadas foi implementado sem limitações de profundidade
+- Os testes com os três arquivos de expressões demonstraram o funcionamento correto do sistema
+
+A integração entre o programa desenvolvido e o hardware Arduino ocorreu sem problemas, com o processo de compilação e gravação funcionando conforme esperado. Os resultados das operações matemáticas são corretamente calculados e exibidos.
+
+Este projeto proporcionou uma excelente oportunidade para aprofundar conhecimentos em:
+- Desenvolvimento de interpretadores
+- Notação polonesa reversa
+- Programação em baixo nível (Assembly)
+- Integração de software com hardware embarcado
+- Operações matemáticas com representação IEEE754
+
+Estamos satisfeitos com o resultado final do trabalho e com o aprendizado adquirido durante o desenvolvimento.
