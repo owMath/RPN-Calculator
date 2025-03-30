@@ -1,0 +1,37 @@
+python <código> <arquivo com expressões>
+
+-necessário para gerar o código em assembly (.asm)
+
+---------------------------------
+
+avr-as -mmcu=atmega328p -o calculadora.o calculadora.asm
+
+-compilação de código assembly para objeto
+-especificado que é para o tipo de microcontrolador atmega328p
+-contém as instruções de máquina
+
+---------------------------------
+
+avr-ld -o calculadora.elf calculadora.o
+
+-conversão de objeto para executável (executable and linkable format)
+-contém tudo que é necessário para o programa rodar
+
+---------------------------------
+
+avr-objcopy -O ihex calculadora.elf calculadora.hex
+
+-conversão de executável para hexadecimal
+-esse é o código que pode ser carregado no microcontrolador
+
+---------------------------------
+
+avrdude -p atmega328p -c arduino -P COM3 -U flash:w:calculadora.hex
+
+-transferência do código em hexadecimal para o arduino
+-são especificados: 
+	tipo de microcontrolador
+	programador (arduino)
+	porta de comunicação serial do pc
+	arquivo a ser usado para gravar
+-após esse comando, o código será executado no arduino
