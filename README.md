@@ -81,3 +81,34 @@ Esse arquivo .bat já faz essa compilação toda para facilitar e pular essas et
 
 Os arquivos .txt contem as expressões aritméticas prontas para serem testadas, mas você pode mesmo criar o seu .txt
 
+### 10. Exemplo de teste
+
+Utilizando o arquivo .txt (teste1)
+
+![Gerando o Assembly (calculadora.asm)](imagens/1.png)
+
+Utilizando o [Compilador .bat](compilar.bat) para enviar ao Arduino
+
+![Gerando o Assembly (calculadora.asm)](imagens/2.png)
+
+Resultado no Serial Monitor do Arduino
+
+![Gerando o Assembly (calculadora.asm)](imagens/3.png)
+
+Arquivo .txt (teste1) que foi utilizado
+
+```
+(2.5 3.7 +)
+(10 4 -)
+(3 5 *)
+(20 5 |)
+(21 5 /)
+(22 5 %)
+(2 3 ^)
+(4 (3 2 *) +)
+((7 3 -) (2 2 +) *)
+(5 MEM)
+(MEM)
+(1 RES)
+```
+
