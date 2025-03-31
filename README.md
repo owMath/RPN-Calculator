@@ -38,28 +38,34 @@ Este comando lê o arquivo com expressões RPN e gera o código em assembly (cal
 ### 4. Compilar e carregar no Arduino
 Siga os passos abaixo para compilar o código assembly e carregá-lo no Arduino:
 
-#### Compilar o código assembly para objeto
+### 5. Facilidade
+
+[Compilador .bat](compilar.bat)
+
+Esse arquivo .bat já faz essa compilação toda para facilitar e pular essas etapas!
+
+#### 6. Compilar o código assembly para objeto
 
 ```avr-as -mmcu=atmega328p -o calculadora.o calculadora.asm```
 
 - Especifica que o código é para o microcontrolador ATmega328p
 - Gera um arquivo objeto com as instruções de máquina
 
-### 5. Converter objeto para executável
+### 7. Converter objeto para executável
 
 ```avr-ld -o calculadora.elf calculadora.o```
 
 - Converte o arquivo objeto para o formato ELF (Executable and Linkable Format)
 - O arquivo ELF contém tudo que é necessário para o programa executar
 
-### 6. Converter executável para hexadecimal
+### 8. Converter executável para hexadecimal
 
 ```avr-objcopy -O ihex calculadora.elf calculadora.hex```
 
 - Converte o arquivo executável para o formato hexadecimal
 - Este é o formato que pode ser carregado no microcontrolador
 
-### 7. Transferir para o Arduino
+### 9. Transferir para o Arduino
 
 ```avrdude -p atmega328p -c arduino -P COM3 -U flash:w:calculadora.hex```
 
@@ -71,17 +77,11 @@ Siga os passos abaixo para compilar o código assembly e carregá-lo no Arduino:
 - Especifica o arquivo a ser gravado
 - Após este comando, o código será executado automaticamente no Arduino
 
-### 8. Facilidade
-
-[Compilador .bat](compilar.bat)
-
-Esse arquivo .bat já faz essa compilação toda para facilitar e pular essas etapas!
-
-### 9. Arquivos .txt
+### 10. Arquivos .txt
 
 Os arquivos .txt contem as expressões aritméticas prontas para serem testadas, mas você pode mesmo criar o seu .txt
 
-### 10. Exemplo de teste
+### 11. Exemplo de teste
 
 Utilizando o arquivo .txt (teste1)
 
