@@ -44,7 +44,7 @@ Siga os passos abaixo para compilar o código assembly e carregá-lo no Arduino:
 
 Esse arquivo .bat já faz essa compilação toda para facilitar e pular essas etapas!
 
-#### 6. Compilar o código assembly para objeto
+### 6. Compilar o código assembly para objeto
 
 ```avr-as -mmcu=atmega328p -o calculadora.o calculadora.asm```
 
