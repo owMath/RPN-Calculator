@@ -144,7 +144,7 @@ def div_half_precision(a, b):
     """
     fa, fb = half_ieee754_to_float(a), half_ieee754_to_float(b)
     # Verificar divisão por zero
-    if fb == 0: return 0x7C00 if fa >= 0 else 0xFC00  # Infinito com sinal
+    if fb == 0: return 0x7C00 if fa >= 0 else 0xFC00  # Infinito com sinal (divisão por 0)
     return float_to_half_ieee754(fa / fb)
 
 def power_half_precision(a, b):
@@ -279,29 +279,29 @@ def resolve(expressao, memoria, ultimo_resultado, file, k):
     # Escrever código para enviar o resultado
     file.write("""
     ; Enviar resultado
-    ldi r16, '='
-    rcall uart_envia_byte
-    ldi r16, ' '
-    rcall uart_envia_byte
+    LDI R16, '='
+    RCALL uart_envia_byte
+    LDI R16, ' '
+    RCALL uart_envia_byte
     """)
     
     # Enviar cada dígito do resultado
     for char in resultado_str:
         file.write(f"""
-    ldi r16, '{char}'
-    rcall uart_envia_byte
+    LDI R16, '{char}'
+    RCALL uart_envia_byte
     """)
     
     # Enviar nova linha e delay
     file.write(f"""
     ; Enviar nova linha
-    ldi r16, 13  ; CR
-    rcall uart_envia_byte
-    ldi r16, 10  ; LF
-    rcall uart_envia_byte
+    LDI R16, 13  ; CR
+    RCALL uart_envia_byte
+    LDI R16, 10  ; LF
+    RCALL uart_envia_byte
     
     ; Delay para visualização
-    rcall delay_ms
+    RCALL delay_ms
 """)
     return resultado_final
 
@@ -331,7 +331,7 @@ def resolve_subexpressao_ieee754(subexpressao, file, k, memoria):
             operando1 = pilha.pop()
             
             # Divisão inteira (operador /)
-            if elemento == '/':
+            if elemento == '/': 
                 # Verificar divisão por zero
                 if operando2 == 0:
                     print(f"Erro: Divisão por zero ({operando1} / {operando2})")
@@ -346,11 +346,11 @@ def resolve_subexpressao_ieee754(subexpressao, file, k, memoria):
                 # Gerar código Assembly para divisão inteira
                 file.write(f"""
     ; {operando1} / {operando2} (Divisão inteira)
-    ldi r16, {operando1_int & 0xFF}
-    ldi r17, {(operando1_int >> 8) & 0xFF}
-    ldi r18, {operando2_int & 0xFF}
-    ldi r19, {(operando2_int >> 8) & 0xFF}
-    rcall integer_divide
+    LDI R16, {operando1_int & 0xFF}
+    LDI R17, {(operando1_int >> 8) & 0xFF}
+    LDI R18, {operando2_int & 0xFF}
+    LDI R19, {(operando2_int >> 8) & 0xFF}
+    RCALL integer_divide
 """)
             # Outros operadores (half-precision)
             else:
@@ -374,11 +374,11 @@ def resolve_subexpressao_ieee754(subexpressao, file, k, memoria):
                 # Gerar código Assembly para a operação
                 file.write(f"""
     ; {operando1} {elemento} {operando2} (IEEE 754 half-precision)
-    ldi r16, {operando1_half & 0xFF}
-    ldi r17, {(operando1_half >> 8) & 0xFF}
-    ldi r18, {operando2_half & 0xFF}
-    ldi r19, {(operando2_half >> 8) & 0xFF}
-    rcall {asm_cmd}
+    LDI R16, {operando1_half & 0xFF}
+    LDI R17, {(operando1_half >> 8) & 0xFF}
+    LDI R18, {operando2_half & 0xFF}
+    LDI R19, {(operando2_half >> 8) & 0xFF}
+    RCALL {asm_cmd}
 """)
                 # Calcular resultado
                 resultado_half = func(operando1_half, operando2_half)
@@ -408,185 +408,574 @@ def adicionar_rotinas_ieee754(file):
 
 half_add:
     ; Empilhar registradores
-    push r20
-    push r21
-    push r22
-    push r23
-    push r24
-    push r25
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
 
     ; Extrair componentes do primeiro operando (a)
-    mov r20, r17         ; r20 = byte alto de a
-    andi r20, 0x80       ; r20 = bit de sinal de a
-    mov r21, r17
-    andi r21, 0x7C       ; r21 = 5 bits de expoente (parte alta)
-    lsr r21
-    lsr r21              ; r21 = expoente >> 2
-    mov r22, r17
-    andi r22, 0x03       ; r22 = 2 bits mais altos da mantissa
-    lsl r22
-    lsl r22
-    lsl r22
-    lsl r22
-    lsl r22
-    lsl r22              ; r22 = bits altos da mantissa deslocados
-    or r22, r16          ; r22:r16 = mantissa completa
+    MOV R20, R17         ; r20 = byte alto de a
+    ANDI R20, 0x80       ; r20 = bit de sinal de a
+    MOV R21, R17
+    ANDI R21, 0x7C       ; r21 = 5 bits de expoente (parte alta) / bit de sinal (bit 8) e ignorando mantissa
+    LSR R21
+    LSR R21              ; r21 = expoente >> 2 / R21 > menos significativo a mantissa (2 zeros a esquerda)
+    MOV R22, R17         ; começo da extração da mantissa
+    ANDI R22, 0x03       ; r22 = 2 bits mais altos da mantissa
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22              ; r22 = bits altos da mantissa deslocados
+    OR R22, R16          ; r22:r16 = mantissa completa
 
     ; Extrair componentes do segundo operando (b)
-    mov r23, r19         ; r23 = byte alto de b
-    andi r23, 0x80       ; r23 = bit de sinal de b
-    mov r24, r19
-    andi r24, 0x7C       ; r24 = 5 bits de expoente (parte alta)
-    lsr r24
-    lsr r24              ; r24 = expoente >> 2
-    mov r25, r19
-    andi r25, 0x03       ; r25 = 2 bits mais altos da mantissa
-    lsl r25
-    lsl r25
-    lsl r25
-    lsl r25
-    lsl r25
-    lsl r25              ; r25 = bits altos da mantissa deslocados
-    or r25, r18          ; r25:r18 = mantissa completa
+    MOV R23, R19         ; r23 = byte alto de b
+    ANDI R23, 0x80       ; r23 = bit de sinal de b
+    MOV R24, r19
+    ANDI R24, 0x7C       ; r24 = 5 bits de expoente (parte alta)
+    LSR R24
+    LSR R24              ; r24 = expoente >> 2
+    MOV R25, R19
+    ANDI R25, 0x03       ; r25 = 2 bits mais altos da mantissa
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25              ; r25 = bits altos da mantissa deslocados
+    OR R25, R18          ; r25:r18 = mantissa completa
 
     ; Alinhar expoentes
-    cp r21, r24
-    breq exponents_equal
-    brlo a_smaller
+    CP R21, R24
+    BREQ exponents_equal
+    BRLO a_smaller
     
     ; Expoente de a é maior
-    sub r21, r24         ; Diferença entre expoentes
+    SUB R21, R24         ; Diferença entre expoentes
     ; Ajustar mantissa de b
-    lsr r25
-    jmp exponents_equal
+    LSR R25
+    JMP exponents_equal
     
 a_smaller:
     ; Expoente de b é maior
-    sub r24, r21         ; Diferença entre expoentes
+    SUB R24, R21         ; Diferença entre expoentes
     ; Ajustar mantissa de a
-    lsr r22
+    LSR R22
     
 exponents_equal:
     ; Verificar sinais para soma/subtração
-    cp r20, r23
-    breq same_sign
+    CP R20, R23
+    BREQ same_sign
     
     ; Sinais diferentes - realizar subtração
-    jmp result_ready
+    JMP result_ready
     
 same_sign:
     ; Sinais iguais - realizar soma
-    add r16, r18         ; Somar bytes baixos da mantissa
-    adc r22, r25         ; Somar bytes altos da mantissa com carry
+    ADD R16, R18         ; Somar bytes baixos da mantissa
+    ADC R22, R25         ; Somar bytes altos da mantissa com carry
     
 result_ready:
     ; Reconstruir o número IEEE 754 de 16 bits
-    mov r17, r20         ; Colocar bit de sinal
+    MOV R17, R20         ; Colocar bit de sinal
     
     ; Restaurar registradores
-    pop r25
-    pop r24
-    pop r23
-    pop r22
-    pop r21
-    pop r20
-    ret
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
 
 half_subtract:
-    ret
+    ; Empilhar registradores
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
+
+    ; Extrair componentes do primeiro operando (a)
+    MOV R20, R17         ; r20 = byte alto de a
+    ANDI R20, 0x80       ; r20 = bit de sinal de a
+    MOV R21, R17
+    ANDI R21, 0x7C       ; r21 = 5 bits de expoente (parte alta)
+    LSR R21
+    LSR R21              ; r21 = expoente >> 2
+    MOV R22, R17
+    ANDI R22, 0x03       ; r22 = 2 bits mais altos da mantissa
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22              ; r22 = bits altos da mantissa deslocados
+    OR R22, R16          ; r22:r16 = mantissa completa
+
+    ; Extrair componentes do segundo operando (b)
+    MOV R23, R19         ; r23 = byte alto de b
+    ANDI R23, 0x80       ; r23 = bit de sinal de b
+    MOV R24, R19
+    ANDI R24, 0x7C       ; r24 = 5 bits de expoente (parte alta)
+    LSR R24
+    LSR R24              ; r24 = expoente >> 2
+    MOV R25, R19
+    ANDI R25, 0x03       ; r25 = 2 bits mais altos da mantissa
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25
+    LSL R25              ; r25 = bits altos da mantissa deslocados
+    OR R25, R18          ; r25:r18 = mantissa completa
+
+    ; Inverter o sinal do segundo operando (transformar subtração em adição com sinal invertido)
+    LDI R19, 0x80
+    EOR R23, R19         ; Inverte o bit de sinal de b
+    
+    ; Alinhar expoentes
+    CP R21, R24
+    BREQ sub_exponents_equal
+    BRLO sub_a_smaller
+    
+    ; Expoente de a é maior
+    SUB R21, R24         ; Diferença entre expoentes
+    ; Ajustar mantissa de b
+    LSR R25
+    DEC R21
+    BRNE sub_exponents_equal
+    JMP sub_exponents_equal
+    
+sub_a_smaller:
+    ; Expoente de b é maior
+    SUB R24, R21         ; Diferença entre expoentes
+    ; Ajustar mantissa de a
+    LSR R22
+    DEC R24
+    BRNE sub_a_smaller
+    
+sub_exponents_equal:
+    ; Verificar sinais para soma/subtração
+    CP R20, R23
+    BREQ sub_same_sign
+    
+    ; Sinais diferentes - realizar subtração
+    SUB R16, R18         ; Subtrair bytes baixos da mantissa
+    SBC R22, R25         ; Subtrair bytes altos da mantissa com carry
+    JMP sub_result_ready
+    
+sub_same_sign:
+    ; Sinais iguais - realizar soma
+    ADD R16, R18         ; Somar bytes baixos da mantissa
+    ADC R22, R25         ; Somar bytes altos da mantissa com carry
+    
+sub_result_ready:
+    ; Reconstruir o número IEEE 754 de 16 bits
+    MOV R17, R20         ; Colocar bit de sinal
+    
+    ; Normalizar resultado se necessário
+    SBRC R22, 7          ; Se bit 7 estiver setado, ajustar expoente
+    INC R21              ; Incrementar expoente
+    
+    ; Inserir expoente
+    LSL R21
+    LSL R21              ; Deslocar expoente
+    ANDI R17, 0x83       ; Manter sinal e 2 bits altos da mantissa
+    ANDI R21, 0x7C       ; Manter apenas os 5 bits do expoente
+    OR R17, R21          ; Combinar sinal + expoente + bits altos da mantissa
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
 
 half_multiply:
     ; Empilhar registradores
-    push r20
-    push r21
-    push r22
-    push r23
-    push r24
-    push r25
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
     
     ; Extrair sinal (XOR dos bits de sinal)
-    mov r20, r17         ; Byte alto de a
-    andi r20, 0x80       ; Bit de sinal de a
-    mov r21, r19         ; Byte alto de b
-    andi r21, 0x80       ; Bit de sinal de b
-    eor r20, r21         ; r20 = sinal do resultado
+    MOV R20, R17         ; Byte alto de a
+    ANDI R20, 0x80       ; Bit de sinal de a
+    MOV R21, R19         ; Byte alto de b
+    ANDI R21, 0x80       ; Bit de sinal de b
+    EOR R20, R21         ; r20 = sinal do resultado
     
     ; Extrair expoentes
-    mov r21, r17
-    andi r21, 0x7C       ; 5 bits de expoente de a
-    lsr r21
-    lsr r21              ; r21 = expoente normalizado
+    MOV R21, R17
+    ANDI R21, 0x7C       ; 5 bits de expoente de a
+    LSR R21
+    LSR R21              ; r21 = expoente normalizado
     
-    mov r22, r19
-    andi r22, 0x7C       ; 5 bits de expoente de b
-    lsr r22
-    lsr r22              ; r22 = expoente normalizado
+    MOV R22, R19
+    ANDI R22, 0x7C       ; 5 bits de expoente de b
+    LSR R22
+    LSR R22              ; r22 = expoente normalizado
     
     ; Somar expoentes e subtrair bias (15)
-    add r21, r22
-    subi r21, 15         ; r21 = expoente final
+    ADD R21, R22
+    SUBI R21, 15         ; r21 = expoente final
     
     ; Reconstruir o número IEEE 754 de 16 bits
-    mov r17, r20         ; Colocar bit de sinal
+    MOV R17, R20         ; Colocar bit de sinal
     
     ; Restaurar registradores
-    pop r25
-    pop r24
-    pop r23
-    pop r22
-    pop r21
-    pop r20
-    ret
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
 
 half_divide:
-    ret
+    ; Empilhar registradores
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
+    
+    ; Verificar divisão por zero
+    MOV R20, R18
+    OR R20, R19
+    BREQ half_div_by_zero
+    
+    ; Extrair sinal (XOR dos bits de sinal)
+    MOV R20, R17         ; Byte alto de a
+    ANDI R20, 0x80       ; Bit de sinal de a
+    MOV R21, R19         ; Byte alto de b
+    ANDI R21, 0x80       ; Bit de sinal de b
+    EOR R20, R21         ; r20 = sinal do resultado
+    
+    ; Extrair expoentes
+    MOV R21, R17
+    ANDI R21, 0x7C       ; 5 bits de expoente de a
+    LSR R21
+    LSR R21              ; r21 = expoente normalizado
+    
+    MOV R22, R19
+    ANDI R22, 0x7C       ; 5 bits de expoente de b
+    LSR R22
+    LSR R22              ; r22 = expoente normalizado
+    
+    ; Calcular expoente do resultado: exp_a - exp_b + bias(15)
+    SUB R21, R22
+    SUBI R21, -15        ; Adicionar bias (usando subtração negativa)
+    
+    ; Extrair mantissas
+    MOV R22, R17
+    ANDI R22, 0x03       ; 2 bits mais altos da mantissa de a
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22
+    LSL R22              ; r22 = bits altos da mantissa deslocados
+    OR R22, R16          ; r22:r16 = mantissa completa de a
+    
+    MOV R23, R19
+    ANDI R23, 0x03       ; 2 bits mais altos da mantissa de b
+    LSL R23
+    LSL R23
+    LSL R23
+    LSL R23
+    LSL R23
+    LSL R23              ; r23 = bits altos da mantissa deslocados
+    OR R23, R18          ; r23:r18 = mantissa completa de b
+    
+    ; Adicionar bit implícito para mantissas normalizadas
+    ORI R22, 0x40        ; Adicionar bit implícito à mantissa de a
+    ORI R23, 0x40        ; Adicionar bit implícito à mantissa de b
+    
+    ; Realizar a divisão da mantissa (simplificada)
+    ; Normalmente, isso seria feito com uma rotina de divisão completa
+    ; Mas para simplificar, assumimos que a mantissa do resultado é aproximada
+    
+    ; Reconstruir o número IEEE 754 de 16 bits
+    MOV R17, R20         ; Colocar bit de sinal
+    
+    ; Inserir expoente
+    LSL R21
+    LSL R21              ; Deslocar expoente
+    ANDI R17, 0x83       ; Manter sinal e 2 bits altos da mantissa
+    ANDI R21, 0x7C       ; Manter apenas os 5 bits do expoente
+    OR R17, R21          ; Combinar sinal + expoente + bits altos da mantissa
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+    
+half_div_by_zero:
+    ; Extrair o sinal do numerador (a)
+    MOV R20, R17
+    ANDI R20, 0x80       ; Bit de sinal de a
+    
+    ; Gerar infinito com o sinal apropriado
+    LDI R16, 0x00        ; Byte baixo para infinito
+    LDI R17, 0x7C        ; Byte alto para infinito positivo
+    OR R17, R20          ; Aplicar sinal ao infinito
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+
+half_power:
+    ; Empilhar registradores
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
+    
+    ; Verificar casos especiais
+    ; Caso 1: Se expoente for 0, retornar 1.0
+    MOV R20, R18
+    OR R20, R19
+    BREQ power_one       ; Se expoente for zero, resultado é 1.0
+    
+    ; Caso 2: Se base for 1.0, retornar 1.0
+    LDI R20, 0x00
+    CP R16, R20
+    BRNE check_base_neg
+    LDI R20, 0x3C        ; 1.0 em half-precision
+    CP R17, R20
+    BREQ power_one       ; Se base for 1.0, resultado é 1.0
+    
+check_base_neg:
+    ; Caso 3: Se base for negativa, verificar se expoente é inteiro
+    MOV R20, R17
+    ANDI R20, 0x80
+    BREQ base_positive   ; Se base for positiva, prosseguir normalmente
+    
+    ; Base é negativa, verificar se expoente é inteiro
+    ; Para simplificar, vamos retornar NaN para base negativa
+    JMP power_nan
+    
+base_positive:
+    ; Implementação simplificada: para potência, usamos logaritmo
+    ; ln(a^b) = b * ln(a), depois exp()
+    ; Como isso requer funções transcendentais complexas,
+    ; vamos implementar apenas casos especiais comuns
+    
+    ; Caso especial: Se expoente for 0.5, calcular raiz quadrada
+    LDI R20, 0x00
+    CP R18, R20
+    BRNE power_approx
+    LDI R20, 0x38        ; 0.5 em half-precision
+    CP R19, R20
+    BRNE power_approx
+    
+    ; Calcular raiz quadrada (aproximação)
+    ; Para simplificar, dividimos o expoente por 2
+    MOV R21, R17
+    ANDI R21, 0x7C       ; Expoente da base
+    LSR R21              ; Dividir expoente por 2
+    ANDI R17, 0x83       ; Manter sinal e parte da mantissa
+    OR R17, R21          ; Recombinar
+    JMP power_done
+    
+power_approx:
+    ; Implementação muito simplificada para outros casos
+    ; Ajuste de expoente aproximado para operações de potência
+    ; Em uma implementação real, um algoritmo mais complexo seria necessário
+    
+power_done:
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+    
+power_one:
+    ; Retornar 1.0
+    LDI R16, 0x00
+    LDI R17, 0x3C        ; 1.0 em half-precision
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+    
+power_nan:
+    ; Retornar NaN
+    LDI R16, 0x00
+    LDI R17, 0x7E        ; NaN em half-precision
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+
+half_modulo:
+    ; Empilhar registradores
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
+    PUSH R24
+    PUSH R25
+    
+    ; Verificar divisão por zero
+    MOV R20, R18
+    OR R20, R19
+    BREQ mod_by_zero
+    
+    ; Extrair componentes do primeiro operando (a)
+    MOV R20, R17         ; r20 = byte alto de a
+    ANDI R20, 0x80       ; r20 = bit de sinal de a
+    
+    ; Extrair expoentes
+    MOV R21, R17
+    ANDI R21, 0x7C       ; 5 bits de expoente de a
+    MOV R22, R19
+    ANDI R22, 0x7C       ; 5 bits de expoente de b
+    
+    ; Verificar se b é maior que a
+    CP R21, R22
+    BRLO mod_a_smaller   ; Se expoente de a for menor, resultado é a
+    
+    ; Implementação simplificada de módulo
+    ; Em uma implementação real, precisaríamos realizar a divisão,
+    ; truncar para obter o quociente, multiplicar pelo divisor,
+    ; e subtrair do dividendo
+    
+    ; Para simplificar, vamos retornar um valor aproximado baseado
+    ; na comparação dos expoentes
+    
+mod_a_smaller:
+    ; Se a < b, resultado do módulo é a
+    MOV R16, R16
+    MOV R17, R17
+    JMP mod_done
+    
+mod_done:
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
+    
+mod_by_zero:
+    ; Retornar NaN
+    LDI R16, 0x00
+    LDI R17, 0x7E        ; NaN em half-precision
+    
+    ; Restaurar registradores
+    POP R25
+    POP R24
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
 
 integer_divide:
     ; Empilhar registradores
-    push r20
-    push r21
-    push r22
-    push r23
+    PUSH R20
+    PUSH R21
+    PUSH R22
+    PUSH R23
     
     ; Verificar divisão por zero
-    mov r20, r18
-    or r20, r19
-    breq div_by_zero
+    MOV R20, R18
+    OR R20, R19
+    BREQ div_by_zero
     
     ; Salvar sinal
-    mov r20, r16
-    eor r20, r18         ; XOR para determinar o sinal do resultado
-    andi r20, 0x80       ; Apenas o bit de sinal
+    MOV R20, R16
+    EOR R20, R18         ; XOR para determinar o sinal do resultado
+    ANDI R20, 0x80       ; Apenas o bit de sinal
     
     ; Resultado da divisão inteira em r16:r17
     ; Restaurar o sinal em r17
-    andi r17, 0x7F       ; Limpar bit de sinal
-    or r17, r20          ; Aplicar bit de sinal
+    ANDI R17, 0x7F       ; Limpar bit de sinal
+    OR R17, r20          ; Aplicar bit de sinal
     
     ; Restaurar registradores
-    pop r23
-    pop r22
-    pop r21
-    pop r20
-    ret
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
     
 div_by_zero:
     ; Tratar divisão por zero
-    ldi r16, 0xFF       ; Indicar erro
-    ldi r17, 0xFF
+    LDI R16, 0xFF       ; Indicar erro
+    LDI R17, 0xFF
     
     ; Restaurar registradores
-    pop r23
-    pop r22
-    pop r21
-    pop r20
-    ret
+    POP R23
+    POP R22
+    POP R21
+    POP R20
+    RET
 
-half_power:
-    ret
+;***********************************************************************************************
 
-half_modulo:
-    ret
+; Função para enviar um byte pela UART
+uart_envia_byte:
+    LDS R17, UCSR0A
+    SBRS R17, 5
+    RJMP uart_envia_byte
+    STS UDR0, R16
+    RET
+
+; Função de delay em milissegundos
+delay_ms:
+    PUSH R20
+    PUSH R21
+    LDI R20, 100
+delay_ms_outer:
+    LDI R21, 255
+delay_ms_inner:
+    DEC R21
+    BRNE delay_ms_inner
+    DEC R20
+    BRNE delay_ms_outer
+    POP R21
+    POP R20
+    RET
 """)
 
 def main():
@@ -611,82 +1000,86 @@ def main():
         file.write("""; Calculadora RPN - Código Assembly para ATmega328P (IEEE 754 Half-precision 16 bits)
 ; Alunos: Gabriel Martins Vicente, Javier Agustin Aranibar González, Matheus Paul Lopuch, Rafael Bonfim Zacco
 ;***********************************************************************************************
-.equ SPH , 0x3E    ; Stack Pointer High
-.equ SPL , 0x3D    ; Stack Pointer Low
-.equ UBRR0L , 0xC4 ; Baud Rate Register Low
-.equ UBRR0H , 0xC5 ; Baud Rate Register High
-.equ UCSR0A , 0xC0 ; Control and Status Register A
-.equ UCSR0B , 0xC1 ; Control and Status Register B
-.equ UCSR0C , 0xC2 ; Control and Status Register C
-.equ UDR0 , 0xC6   ; Registrador de dados UART0
-;***************************************
-.org 0x0000
-    rjmp reset
+.equ SPH, 0x3E    ; Stack Pointer High
+.equ SPL, 0x3D    ; Stack Pointer Low
+.equ UBRR0L, 0xC4 ; Baud Rate Register Low
+.equ UBRR0H, 0xC5 ; Baud Rate Regis ter High
+; 3 registradores (UCSR0A, UCSR0B e UCSR0C) são todos necessários para configurar e controlar a UART corretamente
+.equ UCSR0A, 0xC0 ; Control and Status Register A: Usado para verificar o status da UART, como a verificação de transmissão completa ou erro de paridade (bit 5: UDRE0)
+.equ UCSR0B, 0xC1 ; Control and Status Register B: Responsável pelo controle da habilitação da UART, como o habilitamento de transmissor (bit TXEN0)
+.equ UCSR0C, 0xC2 ; Control and Status Register C: Configurar o formato de dados da UART, como o número de bits por caractere, paridade e bits de stop
+.equ UDR0, 0xC6   ; Registrador de dados para a UART0 (1° porta UART do microcontrolador), é utilizado para enviar e receber dados através da comunicação serial (buffer)
+; Fórmula para definir o Universal Boud Rate Register (UBRR): UBRR = Fcpu / (16 * Baud Rate) -1
+; Para o ATmega328P seria: 16MHz / (16 * 9600) - 1 = 103
+;***********************************************************************************************
+
+.ORG 0x0000
+    RJMP reset
     
 reset:
     ; Configurar stack pointer
-    ldi r16, 0x08
-    out SPH, r16
-    ldi r16, 0xFF
-    out SPL, r16
-    
-    ; Configurar UART
-    ldi r16, 103
-    sts UBRR0L, r16
-    ldi r16, 0
-    sts UBRR0H, r16
-    ldi r16, 8
-    sts UCSR0B, r16
-    ldi r16, 6
-    sts UCSR0C, r16
-    
-    ; Delay inicial
-    ldi r20, 255
-delay_init_loop:
-    dec r20
-    brne delay_init_loop
+    LDI R16, 0x08
+    OUT SPH, r16
+    LDI r16, 0xFF
+    OUT SPL, r16
+        
+        ; Configurar UART
+        LDI R16, 103
+        STS UBRR0L, r16
+        LDI R16, 0
+        STS UBRR0H, r16
+        LDI R16, 8
+        STS UCSR0B, r16
+        LDI R16, 6
+        STS UCSR0C, r16
+        
+        ; Delay inicial
+        LDI R20, 255
+    delay_init_loop: ; Delay para estabilizar
+    DEC R20
+    BRNE delay_init_loop
     
     ; Enviar mensagem inicial
-    ldi r16, 'C'
-    rcall uart_envia_byte
-    ldi r16, 'a'
-    rcall uart_envia_byte
-    ldi r16, 'l'
-    rcall uart_envia_byte
-    ldi r16, 'c'
-    rcall uart_envia_byte
-    ldi r16, 'u'
-    rcall uart_envia_byte
-    ldi r16, 'l'
-    rcall uart_envia_byte
-    ldi r16, 'a'
-    rcall uart_envia_byte
-    ldi r16, 'd'
-    rcall uart_envia_byte
-    ldi r16, 'o'
-    rcall uart_envia_byte
-    ldi r16, 'r'
-    rcall uart_envia_byte
-    ldi r16, 'a'
-    rcall uart_envia_byte
-    ldi r16, ' '
-    rcall uart_envia_byte
-    ldi r16, 'R'
-    rcall uart_envia_byte
-    ldi r16, 'P'
-    rcall uart_envia_byte
-    ldi r16, 'N'
-    rcall uart_envia_byte
-    ldi r16, ':'
-    rcall uart_envia_byte
-    ldi r16, 13
-    rcall uart_envia_byte
-    ldi r16, 10
-    rcall uart_envia_byte
-    ldi r16, 13
-    rcall uart_envia_byte
-    ldi r16, 10
-    rcall uart_envia_byte
+    LDI R16, 'C'
+    RCALL uart_envia_byte
+    LDI R16, 'a'
+    RCALL uart_envia_byte
+    LDI R16, 'l'
+    RCALL uart_envia_byte
+    LDI R16, 'c'
+    RCALL uart_envia_byte
+    LDI R16, 'u'
+    RCALL uart_envia_byte
+    LDI R16, 'l'
+    RCALL uart_envia_byte
+    LDI R16, 'a'
+    RCALL uart_envia_byte
+    LDI R16, 'd'
+    RCALL uart_envia_byte
+    LDI R16, 'o'
+    RCALL uart_envia_byte
+    LDI R16, 'r'
+    RCALL uart_envia_byte
+    LDI R16, 'a'
+    RCALL uart_envia_byte
+    LDI R16, ' '
+    RCALL uart_envia_byte
+    LDI R16, 'R'
+    RCALL uart_envia_byte
+    LDI R16, 'P'
+    RCALL uart_envia_byte
+    LDI R16, 'N'
+    RCALL uart_envia_byte
+    LDI R16, ':'
+    RCALL uart_envia_byte
+    LDI R16, 13
+    RCALL uart_envia_byte
+    LDI R16, 10
+    RCALL uart_envia_byte
+    LDI R16, 13
+    RCALL uart_envia_byte
+    LDI R16, 10
+    RCALL uart_envia_byte
     
 main:
 """)
@@ -727,8 +1120,8 @@ main:
             for char in expressao_original:
                 if char in "()+-*/^%|" or char.isdigit() or char == '.' or char == ' ' or char in "RESM":
                     file.write(f"""
-    ldi r16, '{char}'
-    rcall uart_envia_byte
+    LDI R16, '{char}'
+    RCALL uart_envia_byte
 """)
 
             # Resolver a expressão e gerar código assembly
@@ -745,31 +1138,7 @@ main:
         file.write("""
     ; Loop infinito
 loop_end:
-    rjmp loop_end
-
-; Função para enviar um byte pela UART
-uart_envia_byte:
-    LDS R17, UCSR0A
-    SBRS R17, 5
-    RJMP uart_envia_byte
-    STS UDR0, R16
-    RET
-
-; Função de delay em milissegundos
-delay_ms:
-    push r20
-    push r21
-    ldi r20, 100
-delay_ms_outer:
-    ldi r21, 255
-delay_ms_inner:
-    dec r21
-    brne delay_ms_inner
-    dec r20
-    brne delay_ms_outer
-    pop r21
-    pop r20
-    ret
+    RJMP loop_end
 """)
         # Adicionar rotinas para operações IEEE 754 half-precision
         adicionar_rotinas_ieee754(file)
@@ -778,3 +1147,4 @@ delay_ms_inner:
 
 if __name__ == "__main__":
     main()
+    
